@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>School Lost & Found | Бюро находок</title>
+    <style>
+        /* Общие стили */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+
+        /* Шапка сайта */
+        header {
+            background: linear-gradient(135deg, #1a73e8, #1557b0);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        header h1 { margin: 0; font-size: 2.5em; }
+        header p { margin: 10px 0 0; opacity: 0.9; }
+
+        .container {
+            max-width: 1100px;
+            margin: -30px auto 40px;
+            padding: 0 20px;
+        }
+
+        /* Кнопка добавления */
+        .actions {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .btn-add {
+            background-color: #ffffff;
+            color: #1a73e8;
+            padding: 15px 35px;
+            text-decoration: none;
+            font-weight: bold;
+            border-radius: 50px;
+            display: inline-block;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            transition: 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .btn-add:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+            background-color: #f8f9fa;
+        }
+
+        /* Сетка карточек */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 25px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: 0.3s;
+            border: 1px solid #eee;
+        }
+
+        .card:hover {
+            transform: scale(1.02);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background-color: #e9ecef;
+        }
+
+        .card-content {
+            padding: 20px;
+        }
+
+        .card-content h3 {
+            margin: 0 0 10px;
+            font-size: 1.2em;
+            color: #1a73e8;
+        }
+
+        .card-content p {
+            margin: 5px 0;
+            font-size: 0.95em;
+            color: #666;
+        }
+
+        .status-badge {
+            background: #e6f4ea;
+            color: #1e8e3e;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+
+        /* Состояния загрузки и ошибок */
+        #loader { text-align: center; padding: 50px; font-size: 1.2em; color: #666; }
+        .error-box { background: #fee; color: #c00; padding: 20px; border-radius: 10px; text-align: center; display: none; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🔍 Школьное Бюро Находок</h1>
+    <p>Вернем потерянные вещи законным владельцам!</p>
+</header>
+
+<div class="container">
+    <div class="actions">
+        <a href="https://docs.google.com/forms/d/e/1FAIpQLScdl7491rpQSKGdPx2NdtvV4BhergM87VnS30_KNmU7cHjmqg/viewform?usp=dialog" target="_blank" class="btn-add">
+            ➕ Я нашел вещь!
+        </a>
+    </div>
+
+    <div id="error-message" class="error-box"></div>
+    
+    <div id="loader">Загрузка базы данных...</div>
+    
+    <div class="grid" id="items-grid">
+        </div>
+</div>
+
+<script>
+    /**
+     * НАСТРОЙКИ ПРОЕКТА
+     */
+    // 1. Вставь сюда ссылку, которую ты получил после Deploy (заканчивается на /exec)
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzH3E5WgCgnvD2lH6IGxXZHxrr60f5qrn51yKFAVK6Fy_tewxMCYf9f-Wm4qTH76FJI/exec';
+
+    async function fetchData() {
+        const grid = document.getElementById('items-grid');
+        const loader = document.getElementById('loader');
+        const errorBox = document.getElementById('error-message');
+
+        try {
+            const response = await fetch(SCRIPT_URL);
+            
+            if (!response.ok) throw new Error("Не удалось получить данные");
+            
+            const data = await response.json();
+            
+            // Очищаем экран
+            loader.style.display = 'none';
+            grid.innerHTML = '';
+
+            if (!data || data.length === 0) {
+                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center;"><h3>Пока находок нет. Будьте первым!</h3></div>';
+                return;
+            }
+
+            // Переворачиваем массив, чтобы новые были сверху
+            data.reverse().forEach(item => {
+                // Проверяем наличие имени (колонки "ЧТО НАШЛИ?")
+                if (item.name && item.name.trim() !== "") {
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    
+                    // Формируем HTML карточки
+                    card.innerHTML = `
+                        <img src="${item.photo || 'https://via.placeholder.com/400x300?text=Нет+фото'}" 
+                             alt="Находка" 
+                             onerror="this.src='https://via.placeholder.com/400x300?text=Ошибка+загрузки+фото'">
+                        <div class="card-content">
+                            <span class="status-badge">АКТУАЛЬНО</span>
+                            <h3>${item.name}</h3>
+                            <p>📍 <b>Место:</b> ${item.place || 'Не указано'}</p>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                }
+            });
+
+        } catch (error) {
+            loader.style.display = 'none';
+            errorBox.style.display = 'block';
+            errorBox.innerHTML = `
+                <b>Ошибка загрузки!</b><br>
+                Проверь: 1. Правильно ли вставлена ссылка /exec<br>
+                2. Выбрано ли "Anyone" (Все) при развертывании скрипта.
+            `;
+            console.error("Подробности ошибки:", error);
+        }
+    }
+
+    // Запускаем загрузку
+    fetchData();
+</script>
+
+</body>
+</html>
